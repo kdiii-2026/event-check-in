@@ -34,6 +34,7 @@ def _load_state():
 
 
 def _save_state():
+    os.makedirs(os.path.dirname(STATE_PATH), exist_ok=True)
     tmp = STATE_PATH + ".tmp"
     with open(tmp, "w") as f:
         json.dump(_state, f)
