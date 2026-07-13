@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Event Check-In</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #f4f5f7; color: #1a1d21; min-height: 100vh;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 16px 16px 80px; }
+  .banner {
+    background: #fef3c7; color: #92400e; border: 1px solid #fde68a; border-radius: 10px;
+    padding: 10px 14px; font-size: 13px; margin-bottom: 12px; display: none;
+  }
+  .banner.show { display: block; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 14px; }
+  .tab {
+    flex: 1; padding: 12px 10px; border: 2px solid #d8dce2; border-radius: 12px;
+    background: #fff; cursor: pointer; text-align: center; font-size: 15px; font-weight: 600;
+  }
+  .tab .sub { display: block; font-size: 12px; font-weight: 500; color: #6b7280; margin-top: 3px; }
+  .tab.active { border-color: #2563eb; background: #eff4ff; color: #1e40af; }
+  .searchbar { position: sticky; top: 0; z-index: 5; background: #f4f5f7; padding: 6px 0 10px; }
+  #search {
+    width: 100%; font-size: 20px; padding: 14px 16px; border: 2px solid #d8dce2;
+    border-radius: 12px; outline: none; background: #fff;
+  }
+  #search:focus { border-color: #2563eb; }
+  .filters { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; align-items: center; }
+  .chip {
+    border: 1px solid #d8dce2; background: #fff; border-radius: 999px; padding: 6px 12px;
+    font-size: 13px; cursor: pointer; color: #374151;
+  }
+  .chip.active { background: #1e40af; border-color: #1e40af; color: #fff; }
+  select.chip { appearance: auto; }
+  .stats { font-size: 13px; color: #6b7280; margin: 10px 2px; display: flex; justify-content: space-between; align-items: center; }
+  #resetBtn { background: none; border: none; color: #9ca3af; font-size: 12px; cursor: pointer; text-decoration: underline; }
+  .card {
+    background: #fff; border: 1px solid #e3e6ea; border-radius: 12px; padding: 12px 14px;
+    margin-bottom: 8px; display: flex; align-items: center; gap: 12px;
+  }
+  .card.checked { background: #f0fdf4; border-color: #bbf7d0; }
+  .info { flex: 1; min-width: 0; }
+  .name { font-size: 17px; font-weight: 700; }
+  .meta { font-size: 13px; color: #6b7280; margin-top: 2px; }
+  .badges { margin-top: 5px; display: flex; gap: 5px; flex-wrap: wrap; }
+  .badge { font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; }
+  .b-allergy { background: #fee2e2; color: #b91c1c; }
+  .b-medical { background: #fef3c7; color: #92400e; }
+  .b-flag { background: #ede9fe; color: #6d28d9; }
+  .btn {
+    min-width: 108px; padding: 12px 14px; font-size: 15px; font-weight: 700; border-radius: 10px;
+    border: none; cursor: pointer; background: #2563eb; color: #fff; flex-shrink: 0;
+  }
+  .btn.out { background: #16a34a; }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .btn .t { display: block; font-size: 11px; font-weight: 500; opacity: .9; }
+  .empty { text-align: center; color: #6b7280; padding: 40px 10px; font-size: 15px; }
+  mark { background: #fde68a; border-radius: 3px; }
+  .footer { text-align: center; font-size: 11.5px; color: #9ca3af; margin-top: 18px; }
+  .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
+  .dot.ok { background: #16a34a; }
+  .dot.bad { background: #d1d5db; }
+  .gate {
+    position: fixed; inset: 0; background: #f4f5f7; display: flex; align-items: center;
+    justify-content: center; z-index: 50; padding: 20px;
+  }
+  .gate.hidden { display: none; }
+  .gate-card {
+    background: #fff; border: 1px solid #e3e6ea; border-radius: 16px; padding: 32px;
+    max-width: 340px; width: 100%; text-align: center;
+  }
+  .gate-card h1 { font-size: 18px; margin-bottom: 6px; }
+  .gate-card p { font-size: 13.5px; color: #6b7280; margin-bottom: 18px; }
+  .gate-card input {
+    width: 100%; font-size: 18px; letter-spacing: 2px; text-align: center; padding: 12px;
+    border: 2px solid #d8dce2; border-radius: 10px; outline: none; margin-bottom: 12px;
+    text-transform: uppercase;
+  }
+  .gate-card input:focus { border-color: #2563eb; }
+  .gate-card button {
+    width: 100%; padding: 12px; font-size: 15px; font-weight: 700; border-radius: 10px;
+    border: none; cursor: pointer; background: #2563eb; color: #fff;
+  }
+  .gate-error { color: #b91c1c; font-size: 13px; margin-top: 10px; display: none; }
+  .gate-error.show { display: block; }
+</style>
+</head>
+<body>
+<div class="gate" id="gate">
+  <div class="gate-card">
+    <h1>Event Check-In</h1>
+    <p>Enter the access code to continue</p>
+    <form id="gateForm">
+      <input id="gateInput" type="text" inputmode="text" autocomplete="off" autocapitalize="characters" placeholder="Access code">
+      <button type="submit">Continue</button>
+      <div class="gate-error" id="gateError">Wrong code — try again.</div>
+    </form>
+  </div>
+</div>
+<div class="wrap">
+  <div class="banner" id="offlineBanner">Can't reach the check-in server. Retrying…</div>
+  <div class="tabs" id="tabs"></div>
+  <div class="searchbar">
+    <input id="search" type="search" placeholder="Type a name to search…" autocomplete="off" autofocus>
+    <div class="filters">
+      <button class="chip active" data-f="all">All</button>
+      <button class="chip" data-f="in">Checked in</button>
+      <button class="chip" data-f="out">Not checked in</button>
+      <select class="chip" id="gradeSel"><option value="">All grades</option></select>
+    </div>
+  </div>
+  <div class="stats"><span id="count"></span><button id="resetBtn">Reset all check-ins</button></div>
+  <div id="list"></div>
+  <div class="footer" id="sheetStatus"><span class="dot bad"></span>checking Google Sheet sync…</div>
+</div>
+<script>
+let ROSTER = [];
+let STATE = {};
+let event_ = null, filter = "all", grade = "", q = "";
+
+const PASSCODE_KEY = "checkin-passcode";
+function apiFetch(url, opts) {
+  opts = opts || {};
+  const code = localStorage.getItem(PASSCODE_KEY);
+  opts.headers = Object.assign({}, opts.headers, code ? { "X-Checkin-Passcode": code } : {});
+  return fetch(url, opts);
+}
+
+function ev() { return ROSTER.find(e => e.key === event_); }
+function esc(s) { return (s || "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function norm(s) { return s.toLowerCase().normalize("NFD").replace(/[̀-ͯ'’\-]/g, ""); }
+
+function hl(text) {
+  if (!q) return esc(text);
+  const i = norm(text).indexOf(norm(q));
+  if (i < 0) return esc(text);
+  return esc(text.slice(0, i)) + "<mark>" + esc(text.slice(i, i + q.length)) + "</mark>" + esc(text.slice(i + q.length));
+}
+
+function renderTabs() {
+  document.getElementById("tabs").innerHTML = ROSTER.map(e => {
+    const st = STATE[e.key] || {}, n = e.kids.filter(k => st[k.id]).length;
+    return `<button class="tab ${e.key===event_?"active":""}" data-k="${e.key}">${esc(e.label)}<span class="sub">${n} / ${e.kids.length} checked in</span></button>`;
+  }).join("");
+}
+
+function renderGrades() {
+  const sel = document.getElementById("gradeSel");
+  const grades = [...new Set(ev().kids.map(k => k.grade))].sort();
+  sel.innerHTML = '<option value="">All grades</option>' + grades.map(g => `<option ${g===grade?"selected":""}>${esc(g)}</option>`).join("");
+}
+
+function fmtTime(ts) {
+  return new Date(ts).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}
+
+function render() {
+  if (!ROSTER.length || !event_) return;
+  renderTabs();
+  const st = STATE[event_] || {};
+  let kids = ev().kids;
+  if (q) kids = kids.filter(k => norm(k.first + " " + k.last).includes(norm(q)) || norm(k.last + " " + k.first).includes(norm(q)));
+  if (grade) kids = kids.filter(k => k.grade === grade);
+  if (filter === "in") kids = kids.filter(k => st[k.id]);
+  if (filter === "out") kids = kids.filter(k => !st[k.id]);
+  document.getElementById("count").textContent = kids.length + " shown · " + ev().kids.filter(k => st[k.id]).length + " of " + ev().kids.length + " checked in";
+  document.getElementById("list").innerHTML = kids.length ? kids.map(k => {
+    const inAt = st[k.id];
+    const badges = [
+      k.allergies ? `<span class="badge b-allergy">⚠ Allergy: ${esc(k.allergies)}</span>` : "",
+      k.medical ? `<span class="badge b-medical">✚ ${esc(k.medical)}</span>` : "",
+      k.flag ? `<span class="badge b-flag">${esc(k.flag)}</span>` : "",
+    ].join("");
+    const meta = [k.grade !== "—" ? "Grade: " + k.grade : "", k.phone].filter(Boolean).join(" · ");
+    return `<div class="card ${inAt?"checked":""}">
+      <div class="info">
+        <div class="name">${hl(k.first)} ${hl(k.last)}</div>
+        <div class="meta">${esc(meta)}</div>
+        ${badges ? `<div class="badges">${badges}</div>` : ""}
+      </div>
+      <button class="btn ${inAt?"out":""}" data-id="${k.id}">${inAt ? "✓ In<span class='t'>" + fmtTime(inAt) + " · tap to undo</span>" : "Check in"}</button>
+    </div>`;
+  }).join("") : `<div class="empty">No one matches "${esc(q)}"${filter!=="all"||grade?" with these filters":""}.</div>`;
+}
+
+function setOffline(isOffline) {
+  document.getElementById("offlineBanner").classList.toggle("show", isOffline);
+}
+
+async function loadRoster() {
+  const res = await apiFetch("/api/roster");
+  if (res.status === 401) throw new Error("unauthorized");
+  ROSTER = await res.json();
+  if (!event_ && ROSTER.length) event_ = ROSTER[0].key;
+  renderGrades();
+}
+
+async function loadState() {
+  const res = await apiFetch("/api/state");
+  if (res.status === 401) throw new Error("unauthorized");
+  STATE = await res.json();
+}
+
+async function poll() {
+  try {
+    await loadState();
+    setOffline(false);
+    render();
+  } catch (e) {
+    setOffline(true);
+  }
+}
+
+async function pollRoster() {
+  try {
+    await loadRoster();
+    render();
+  } catch (e) { /* keep showing stale roster */ }
+}
+
+async function pollSheetStatus() {
+  try {
+    const s = await apiFetch("/api/sheets-status").then(r => r.json());
+    const el = document.getElementById("sheetStatus");
+    if (s.enabled) {
+      el.innerHTML = '<span class="dot ok"></span>Synced to Google Sheet';
+    } else {
+      el.innerHTML = '<span class="dot bad"></span>Google Sheet not connected (local only)';
+    }
+  } catch (e) { /* ignore */ }
+}
+
+document.getElementById("list").addEventListener("click", async e => {
+  const b = e.target.closest(".btn"); if (!b) return;
+  const id = b.dataset.id;
+  const st = STATE[event_] = STATE[event_] || {};
+  const wasIn = !!st[id];
+  // optimistic update
+  if (wasIn) delete st[id]; else st[id] = Date.now();
+  render();
+  try {
+    const res = await apiFetch("/api/checkin", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ event: event_, id }),
+    }).then(r => r.json());
+    STATE[event_] = res.state || {};
+    setOffline(false);
+  } catch (err) {
+    // revert optimistic change on failure
+    if (wasIn) st[id] = Date.now(); else delete st[id];
+    setOffline(true);
+  }
+  render();
+});
+
+document.getElementById("tabs").addEventListener("click", e => {
+  const t = e.target.closest(".tab"); if (!t) return;
+  event_ = t.dataset.k; grade = ""; renderGrades(); render();
+  document.getElementById("search").focus();
+});
+document.querySelectorAll(".chip[data-f]").forEach(c => c.addEventListener("click", () => {
+  document.querySelectorAll(".chip[data-f]").forEach(x => x.classList.remove("active"));
+  c.classList.add("active"); filter = c.dataset.f; render();
+}));
+document.getElementById("gradeSel").addEventListener("change", e => { grade = e.target.value; render(); });
+document.getElementById("search").addEventListener("input", e => { q = e.target.value.trim(); render(); });
+document.getElementById("resetBtn").addEventListener("click", async () => {
+  if (!confirm("Clear ALL check-ins for " + ev().label + "? (Use this to start a new day.)")) return;
+  await apiFetch("/api/reset", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ event: event_ }),
+  });
+  await loadState();
+  render();
+});
+
+async function startApp() {
+  document.getElementById("gate").classList.add("hidden");
+  await loadRoster();
+  await loadState();
+  render();
+  pollSheetStatus();
+  setInterval(poll, 2000);
+  setInterval(pollRoster, 30000);
+  setInterval(pollSheetStatus, 15000);
+}
+
+async function tryEnter(code) {
+  if (code) localStorage.setItem(PASSCODE_KEY, code);
+  try {
+    const res = await apiFetch("/api/roster");
+    if (res.status === 401) {
+      localStorage.removeItem(PASSCODE_KEY);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    return true; // network/server hiccup -- let them in, poll() will surface it
+  }
+}
+
+document.getElementById("gateForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const code = document.getElementById("gateInput").value.trim();
+  document.getElementById("gateError").classList.remove("show");
+  if (await tryEnter(code)) {
+    startApp();
+  } else {
+    document.getElementById("gateError").classList.add("show");
+  }
+});
+
+(async function init() {
+  if (await tryEnter(localStorage.getItem(PASSCODE_KEY))) {
+    startApp();
+  } else {
+    document.getElementById("gateInput").focus();
+  }
+})();
+</script>
+</body>
+</html>

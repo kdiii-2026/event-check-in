@@ -1,0 +1,10 @@
+server/config.json
+server/service-account.json
+server/data/checkins.json
+server/data/source/*.csv
+__pycache__/
+*.pyc
+.DS_Store
+debug.jsonl
+thumbnail.png
+.claude/
