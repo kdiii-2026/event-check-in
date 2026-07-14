@@ -85,9 +85,34 @@ def _load_event(event):
     return kids
 
 
-def load_roster():
+def _dedupe(kids, prefer_ids):
+    """Registrants who submitted more than once (same person, same phone)
+    show up as separate CSV rows -- collapse each such group to one entry.
+
+    Preference order when picking which duplicate to keep: whichever one is
+    already checked in (prefer_ids), then whichever isn't a flagged
+    Parent/Guardian guess, then the earliest submission (lowest response id).
+    """
+    groups = {}
+    for k in kids:
+        key = (k["first"].strip().lower(), k["last"].strip().lower(), k["phone"].strip())
+        groups.setdefault(key, []).append(k)
+
+    def score(k):
+        return (
+            0 if k["id"] in prefer_ids else 1,
+            0 if not k["flag"] else 1,
+            int(k["id"].rsplit("-", 1)[-1]),
+        )
+
+    out = [min(group, key=score) for group in groups.values()]
+    out.sort(key=lambda k: (k["last"].lower(), k["first"].lower()))
+    return out
+
+
+def load_roster(prefer_ids=frozenset()):
     return [
-        {"key": e["key"], "label": e["label"], "kids": _load_event(e)}
+        {"key": e["key"], "label": e["label"], "kids": _dedupe(_load_event(e), prefer_ids)}
         for e in EVENTS
     ]
 

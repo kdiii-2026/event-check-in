@@ -44,7 +44,10 @@ def _save_state():
 def _refresh_roster():
     """Local/dev mode: reload the roster from the CSVs on disk."""
     global _roster_cache
-    _roster_cache = roster.load_roster()
+    prefer_ids = set()
+    for ev_state in _state.values():
+        prefer_ids.update(ev_state.keys())
+    _roster_cache = roster.load_roster(prefer_ids=prefer_ids)
     return _roster_cache
 
 
