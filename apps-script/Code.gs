@@ -73,3 +73,20 @@ function json_(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
 }
+
+// Set up a time-driven trigger (Triggers icon in the left sidebar > Add
+// Trigger) pointing at this function to clear check-ins automatically every
+// night. Only touches tabs this app manages (checked via the "ID" header in
+// A1) -- leaves the roster, names, and everything else untouched.
+function resetAllCheckins_() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  ss.getSheets().forEach(function (sheet) {
+    if (sheet.getRange(1, 1).getValue() !== "ID") return;
+    var lastRow = sheet.getLastRow();
+    if (lastRow < 2) return;
+    var numRows = lastRow - 1;
+    var blanks = [];
+    for (var i = 0; i < numRows; i++) blanks.push(["Not checked in", ""]);
+    sheet.getRange(2, 13, numRows, 2).setValues(blanks); // columns M:N
+  });
+}
