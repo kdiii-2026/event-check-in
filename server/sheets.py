@@ -12,10 +12,15 @@ from roster import EVENTS_META
 HEADER = [
     "ID", "First Name", "Last Name", "Grade", "Gender", "Age", "Phone", "Email",
     "Allergies", "Medical Notes", "Additional Info", "Flag",
-    "Status", "Checked-In At",
+    "Status", "Checked-In At", "Checked-In At (raw)",
 ]
-STATUS_COL = 13   # column M
+STATUS_COL = 13   # column M, spans M:O (Status, human-readable time, raw ms)
 TIME_FMT = "%Y-%m-%d %I:%M %p"
+# Google Sheets silently converts strings that look like dates into real Date
+# cells -- reading those back gives a different format than what we wrote,
+# breaking a strptime-based round trip. Column O sidesteps that entirely by
+# storing the raw epoch-ms integer Sheets has no reason to reinterpret; column
+# N (the formatted string) is kept only for humans glancing at the Sheet.
 
 _lock = threading.Lock()
 _webapp_url = None
@@ -68,7 +73,7 @@ def _kid_row(kid, state):
         kid["id"], kid["first"], kid["last"], kid["grade"], kid.get("gender", ""),
         kid.get("age", ""), kid["phone"], kid["email"],
         kid["allergies"], kid["medical"], kid["notes"], kid["flag"],
-        checked, when,
+        checked, when, ts or "",
     ]
 
 
@@ -133,7 +138,7 @@ def update_one(roster_by_key, event_key, kid_id, ts):
                 "label": label,
                 "row": row,
                 "col": STATUS_COL,
-                "values": [checked, when],
+                "values": [checked, when, ts or ""],
             })
     except Exception as e:  # noqa: BLE001
         global _init_error
@@ -143,7 +148,7 @@ def update_one(roster_by_key, event_key, kid_id, ts):
 def _row_to_kid(row):
     row = list(row) + [""] * (len(HEADER) - len(row))
     (kid_id, first, last, grade, gender, age, phone, email,
-     allergies, medical, notes, flag, checked, when) = row[:len(HEADER)]
+     allergies, medical, notes, flag, checked, when, raw_ms) = row[:len(HEADER)]
     age_val = None
     if str(age).strip().replace(".0", "").isdigit():
         age_val = int(float(age))
@@ -153,11 +158,13 @@ def _row_to_kid(row):
         "allergies": allergies, "medical": medical, "notes": notes, "flag": flag,
     }
     ts = None
-    if str(checked).strip() == "Checked In" and str(when).strip():
+    if str(checked).strip() == "Checked In":
         try:
-            ts = int(datetime.strptime(str(when).strip(), TIME_FMT).timestamp() * 1000)
-        except ValueError:
-            ts = 1
+            ts = int(float(raw_ms)) if str(raw_ms).strip() != "" else None
+        except (TypeError, ValueError):
+            ts = None
+        if not ts:
+            ts = 1  # marked Checked In but the raw timestamp is missing/corrupt
     return kid, ts
 
 
