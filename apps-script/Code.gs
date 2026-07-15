@@ -56,6 +56,11 @@ function fullSync_(events) {
     if (!sheet) sheet = ss.insertSheet(ev.label);
     sheet.clearContents();
     if (ev.rows.length) {
+      // Force column N (Checked-In At) to plain text so Sheets doesn't
+      // auto-parse our "YYYY-MM-DD H:MM AM/PM" strings into real Date
+      // values -- that silently breaks the exact string round-trip the
+      // server relies on to reconstruct check-in timestamps.
+      sheet.getRange(1, 14, Math.max(sheet.getMaxRows(), ev.rows.length), 1).setNumberFormat("@");
       sheet.getRange(1, 1, ev.rows.length, ev.rows[0].length).setValues(ev.rows);
       sheet.setFrozenRows(1);
     }
@@ -66,7 +71,9 @@ function updateOne_(label, row, col, values) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName(label);
   if (!sheet) throw new Error("no tab named " + label + " -- run a full sync first");
-  sheet.getRange(row, col, 1, values.length).setValues([values]);
+  var range = sheet.getRange(row, col, 1, values.length);
+  range.setNumberFormat("@"); // keep as plain text, see fullSync_ comment
+  range.setValues([values]);
 }
 
 function json_(obj) {
